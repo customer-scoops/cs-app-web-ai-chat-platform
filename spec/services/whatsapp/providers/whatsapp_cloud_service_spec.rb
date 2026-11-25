@@ -690,4 +690,52 @@ describe Whatsapp::Providers::WhatsappCloudService do
       end
     end
   end
+
+  describe 'typing indicator' do
+    let(:typing_url) { 'https://graph.facebook.com/v22.0/123456789/messages' }
+    let(:text_url) { 'https://graph.facebook.com/v13.0/123456789/messages' }
+    let(:typing_body) do
+      {
+        messaging_product: 'whatsapp',
+        status: 'read',
+        message_id: 'wamid.customer',
+        typing_indicator: { type: 'text' }
+      }
+    end
+
+    it 'sends the typing indicator before the text when the customer has written' do
+      create(:message, conversation: conversation, message_type: :incoming, inbox: whatsapp_channel.inbox,
+                       account: conversation.account, source_id: 'wamid.customer')
+      order = []
+      stub_request(:post, typing_url).with(body: typing_body.to_json).to_return do
+        order << :typing
+        { status: 200, body: '{}', headers: response_headers }
+      end
+      stub_request(:post, text_url).to_return do
+        order << :text
+        { status: 200, body: whatsapp_response.to_json, headers: response_headers }
+      end
+
+      expect(service.send_message('+123456789', message)).to eq 'message_id'
+      expect(order).to eq(%i[typing text])
+    end
+
+    it 'still sends the text when the typing indicator request fails' do
+      create(:message, conversation: conversation, message_type: :incoming, inbox: whatsapp_channel.inbox,
+                       account: conversation.account, source_id: 'wamid.customer')
+      stub_request(:post, typing_url).to_return(status: 500, body: '{}', headers: response_headers)
+      stub_request(:post, text_url).to_return(status: 200, body: whatsapp_response.to_json, headers: response_headers)
+
+      expect(service.send_message('+123456789', message)).to eq 'message_id'
+    end
+
+    it 'does not send a typing indicator when the customer has not written' do
+      typing = stub_request(:post, typing_url)
+      stub_request(:post, text_url).to_return(status: 200, body: whatsapp_response.to_json, headers: response_headers)
+
+      service.send_message('+123456789', message)
+
+      expect(typing).not_to have_been_requested
+    end
+  end
 end

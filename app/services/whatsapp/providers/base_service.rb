@@ -131,6 +131,13 @@ class Whatsapp::Providers::BaseService
     json_hash = { :button => I18n.t('conversations.messages.whatsapp.list_button_label'), 'sections' => sections }
     create_payload('list', message.outgoing_content, JSON.generate(json_hash))
   end
+
+  def whatsapp_reply_context(message)
+    reply_to = message.content_attributes[:in_reply_to_external_id]
+    return nil if reply_to.blank?
+
+    { message_id: reply_to }
+  end
 end
 
 Whatsapp::Providers::BaseService.prepend_mod_with('Whatsapp::Providers::BaseService')

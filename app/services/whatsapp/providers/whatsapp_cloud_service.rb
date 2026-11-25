@@ -1,6 +1,7 @@
 class Whatsapp::Providers::WhatsappCloudService < Whatsapp::Providers::BaseService
   def send_message(phone_number, message)
     @message = message
+    Whatsapp::TypingIndicator.new(whatsapp_channel: whatsapp_channel).perform_before_send(message)
 
     if message.attachments.present?
       send_attachment_message(phone_number, message)
@@ -12,6 +13,7 @@ class Whatsapp::Providers::WhatsappCloudService < Whatsapp::Providers::BaseServi
   end
 
   def send_template(phone_number, template_info, message)
+    Whatsapp::TypingIndicator.new(whatsapp_channel: whatsapp_channel).perform_before_send(message)
     template_body = template_body_parameters(template_info)
 
     request_body = {
@@ -73,6 +75,10 @@ class Whatsapp::Providers::WhatsappCloudService < Whatsapp::Providers::BaseServi
     return true if phone_response.success? && ids.any? { |number| number['id'] == config['phone_number_id'].to_s }
 
     log_transfer_failure('phone_number_id_check', phone_response)
+  end
+
+  def send_typing_indicator(message_id)
+    Whatsapp::TypingIndicator.new(whatsapp_channel: whatsapp_channel).perform(message_id)
   end
 
   def api_headers
@@ -229,15 +235,6 @@ class Whatsapp::Providers::WhatsappCloudService < Whatsapp::Providers::BaseServi
     template_body[:components] = template_info[:parameters] || []
 
     template_body
-  end
-
-  def whatsapp_reply_context(message)
-    reply_to = message.content_attributes[:in_reply_to_external_id]
-    return nil if reply_to.blank?
-
-    {
-      message_id: reply_to
-    }
   end
 
   def send_interactive_text_message(phone_number, message)

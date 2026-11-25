@@ -1085,9 +1085,13 @@ export default {
     },
     toggleAudioRecorder() {
       this.isRecordingAudio = !this.isRecordingAudio;
-      if (!this.isRecordingAudio) {
-        this.resetAudioRecorderInput();
+      if (this.isRecordingAudio) {
+        this.toggleTyping('on');
+        return;
       }
+
+      this.resetAudioRecorderInput();
+      this.toggleTyping('off');
     },
     toggleAudioRecorderPlayPause() {
       if (!this.$refs.audioRecorderInput) return;
