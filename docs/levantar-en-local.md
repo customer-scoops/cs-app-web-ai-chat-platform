@@ -104,42 +104,54 @@ docker compose down -v
 
 Después hay que repetir el `up` y `db:chatwoot_prepare`.
 
-## 6. Webhook de WhatsApp con Cloudflare
+## 6. Webhooks de WhatsApp e Instagram
 
-Meta no puede llamar a `localhost`. Para verificar el webhook hace falta una URL HTTPS pública que llegue al Rails de este Compose. El panel se sigue abriendo en http://localhost:3000. El túnel solo publica el puerto 3000 para el GET de verificación y los POST de los mensajes.
+Meta no puede llamar a `localhost`. Un túnel rápido de Cloudflare publica el puerto 3000 con una URL `https://<aleatorio>.trycloudflare.com`. No usa el dominio `scoopsxi.com` ni pide cuenta de Cloudflare. La URL cambia cada vez que se cierra el proceso. El panel se sigue abriendo en http://localhost:3000.
 
-Con Docker ya publicando el puerto 3000, en otra terminal:
+Haz estos pasos con Docker ya publicando el puerto 3000.
+
+1. En otra terminal, instala el cliente si hace falta y abre el túnel. Déjalo abierto:
 
 ```bash
 brew install cloudflared
 cloudflared tunnel --url http://localhost:3000
 ```
 
-`cloudflared` reenvía a HTTP local. Rails no habla TLS; el certificado lo pone Cloudflare. El comando imprime `https://<aleatorio>.trycloudflare.com`. Deja ese proceso abierto mientras duren las pruebas. Cada vez que se cierra, la URL cambia. No hace falta cuenta ni dominio de Cloudflare.
+`cloudflared` reenvía a HTTP local. Rails no habla TLS; el certificado lo pone Cloudflare. El comando imprime `https://<aleatorio>.trycloudflare.com`. Copia esa URL, sin barra final.
 
-En `.env`, con esa URL y sin barra final:
+2. Pégala en `.env`:
 
 ```bash
 FRONTEND_URL=https://<aleatorio>.trycloudflare.com
 ```
 
-Docker lee `.env` al crear el contenedor. Reiniciar no vuelve a cargar la variable. Recrea solo Rails:
+3. Docker lee `.env` al crear el contenedor. Reiniciar no vuelve a cargar la variable. Recrea solo Rails:
 
 ```bash
 docker compose up -d --force-recreate --no-deps rails
 ```
 
-Chatwoot arma el webhook como `{FRONTEND_URL}/webhooks/whatsapp/{número del canal}`. En la configuración del canal de WhatsApp, reintenta la configuración del webhook. Meta hace el GET y Rails devuelve el challenge si el `webhook_verify_token` del canal coincide. En desarrollo `config.hosts` ya está en `nil`, así que el host de Cloudflare no hay que agregarlo.
+4. En desarrollo `config.hosts` ya está en `nil`, así que el host no hay que agregarlo. Chatwoot arma estas direcciones con `FRONTEND_URL`:
 
-Si cierras `cloudflared`, repite `FRONTEND_URL`, recrea `rails` y vuelve a reintentar el webhook.
+| Uso | Dirección |
+| --- | --- |
+| Webhook de WhatsApp | `https://<aleatorio>.trycloudflare.com/webhooks/whatsapp/{número del canal}` |
+| Webhook de Instagram | `https://<aleatorio>.trycloudflare.com/webhooks/instagram` |
+| Redirección de Instagram | `https://<aleatorio>.trycloudflare.com/instagram/callback` |
 
-Una petición sin token debe responder 401:
+5. En la configuración del canal de WhatsApp, reintenta el webhook. Meta hace el GET y Rails devuelve el challenge si el `webhook_verify_token` del canal coincide. En la app de Meta, pega la redirección y el webhook de Instagram de la tabla y vuelve a verificarlos.
+
+6. Una petición de WhatsApp sin token debe responder 401:
 
 ```bash
 curl -i "https://<aleatorio>.trycloudflare.com/webhooks/whatsapp/+51900000000?hub.mode=subscribe&hub.verify_token=incorrecto&hub.challenge=123"
 ```
 
-Sustituye el número por el del canal. El panel se usa en http://localhost:3000. La URL de Cloudflare es para Meta. Si abres el dashboard por el túnel, Vite pide miles de archivos de idioma y Cloudflare los corta.
+Sustituye el número por el del canal.
+
+Si cierras `cloudflared`, la URL cambia. Repite desde el paso 1: nuevo `FRONTEND_URL`, recrea `rails` y vuelve a pegar las tres direcciones en Meta.
+
+El panel se usa en http://localhost:3000. La URL de Cloudflare es para Meta. Si abres el dashboard por el túnel, Vite pide miles de archivos de idioma y Cloudflare los corta.
 
 ## Puertos que ocupa
 
