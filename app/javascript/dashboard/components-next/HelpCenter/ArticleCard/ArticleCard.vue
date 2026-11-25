@@ -2,6 +2,8 @@
 import { computed, useTemplateRef } from 'vue';
 import { useToggle } from '@vueuse/core';
 import { useI18n } from 'vue-i18n';
+import { formatDistanceToNow, fromUnixTime } from 'date-fns';
+import { es } from 'date-fns/locale';
 import { dynamicTime } from 'shared/helpers/timeHelper';
 import { useExactTimestamp } from 'shared/composables/useExactTimestamp';
 import {
@@ -81,7 +83,7 @@ const emit = defineEmits([
 
 const exactTimestamp = useExactTimestamp();
 
-const { t } = useI18n();
+const { t, locale } = useI18n();
 
 const [showActionsDropdown, toggleDropdown] = useToggle();
 
@@ -172,6 +174,12 @@ const authorThumbnailSrc = computed(() => {
 });
 
 const lastUpdatedAt = computed(() => {
+  if (String(locale.value).startsWith('es')) {
+    return formatDistanceToNow(fromUnixTime(props.updatedAt), {
+      addSuffix: true,
+      locale: es,
+    });
+  }
   return dynamicTime(props.updatedAt);
 });
 

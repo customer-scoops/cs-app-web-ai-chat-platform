@@ -2,8 +2,8 @@
   "HELP_CENTER": {
     "TITLE": "Centro de ayuda",
     "NEW_PAGE": {
-      "DESCRIPTION": "Create self-service help center portals for your customers. Help them find answers quickly, without waiting. Streamline inquiries, boost agent efficiency, and elevate customer support.",
-      "CREATE_PORTAL_BUTTON": "Crear Portal"
+      "DESCRIPTION": "Crea portales de ayuda para que tus clientes encuentren respuestas por su cuenta, sin esperar. Así reduces las consultas, aligeras el trabajo del equipo y mejoras la atención.",
+      "CREATE_PORTAL_BUTTON": "Crear portal"
     },
     "HEADER": {
       "FILTER": "Filtrar por",
@@ -536,7 +536,7 @@
     "ARTICLES_PAGE": {
       "ARTICLE_CARD": {
         "CARD": {
-          "VIEWS": "{count} view | {count} views",
+          "VIEWS": "{count} vista | {count} vistas",
           "DROPDOWN_MENU": {
             "PUBLISH": "Publicar",
             "DRAFT": "Borrador",
@@ -887,20 +887,20 @@
       "PORTAL_NAME": "Nombre del portal"
     },
     "CREATE_PORTAL_DIALOG": {
-      "TITLE": "Create new portal",
-      "DESCRIPTION": "Give your portal a name and create a user-friendly URL slug. You can modify both later in the settings.",
+      "TITLE": "Crear portal",
+      "DESCRIPTION": "Ponle un nombre y una ruta fácil de leer. Puedes cambiar ambos después en los ajustes.",
       "CONFIRM_BUTTON_LABEL": "Crear",
       "NAME": {
         "LABEL": "Nombre",
-        "PLACEHOLDER": "User Guide | Chatwoot",
-        "MESSAGE": "Choose an name for your portal.",
-        "ERROR": "El nombre es requerido"
+        "PLACEHOLDER": "Guía de usuario",
+        "MESSAGE": "Elige un nombre para el portal.",
+        "ERROR": "El nombre es obligatorio"
       },
       "SLUG": {
-        "LABEL": "Slug",
-        "PLACEHOLDER": "user-guide",
-        "ERROR": "Slug es requerido",
-        "FORMAT_ERROR": "Please enter a valid slug, for eg: user-guide"
+        "LABEL": "Ruta",
+        "PLACEHOLDER": "guia-de-usuario",
+        "ERROR": "La ruta es obligatoria",
+        "FORMAT_ERROR": "Ingresa una ruta válida, por ejemplo: guia-de-usuario"
       }
     },
     "PORTAL_SETTINGS": {
