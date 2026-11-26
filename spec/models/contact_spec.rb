@@ -148,6 +148,22 @@ RSpec.describe Contact do
         expect(resolved).to include(contact_with_email, contact_with_phone, contact_with_identifier)
         expect(resolved).not_to include(contact_without_details)
       end
+
+      it 'includes a messaging contact that only has a name and excludes a widget visitor' do
+        stub_request(:post, /graph\.facebook\.com/)
+        facebook_contact = create(:contact, account: account, name: 'Messenger Person', email: nil, phone_number: nil, identifier: nil)
+        facebook_channel = create(:channel_facebook_page, account: account, inbox: nil)
+        facebook_inbox = create(:inbox, channel: facebook_channel, account: account)
+        create(:contact_inbox, contact: facebook_contact, inbox: facebook_inbox)
+
+        widget_contact = create(:contact, account: account, name: 'Widget Visitor', email: nil, phone_number: nil, identifier: nil)
+        create(:contact_inbox, contact: widget_contact, inbox: create(:inbox, account: account))
+
+        resolved = account.contacts.resolved_contacts(use_crm_v2: false)
+
+        expect(resolved).to include(facebook_contact)
+        expect(resolved).not_to include(widget_contact)
+      end
     end
 
     context 'when crm_v2 feature flag is enabled' do

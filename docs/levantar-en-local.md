@@ -114,8 +114,10 @@ Haz estos pasos con Docker ya publicando el puerto 3000.
 
 ```bash
 brew install cloudflared
-cloudflared tunnel --url http://localhost:3000
+cloudflared tunnel --config /dev/null --url http://localhost:3000
 ```
+
+`--config /dev/null` evita que se use `~/.cloudflared/config.yml`. Ese archivo es del túnel con nombre y responde 404 a la URL rápida.
 
 `cloudflared` reenvía a HTTP local. Rails no habla TLS; el certificado lo pone Cloudflare. El comando imprime `https://<aleatorio>.trycloudflare.com`. Copia esa URL, sin barra final.
 
@@ -152,6 +154,95 @@ Sustituye el número por el del canal.
 Si cierras `cloudflared`, la URL cambia. Repite desde el paso 1: nuevo `FRONTEND_URL`, recrea `rails` y vuelve a pegar las tres direcciones en Meta.
 
 El panel se usa en http://localhost:3000. La URL de Cloudflare es para Meta. Si abres el dashboard por el túnel, Vite pide miles de archivos de idioma y Cloudflare los corta.
+
+## 7. Canal de email con Amazon SES
+
+Por defecto el Compose usa Mailhog (`SMTP_ADDRESS=mailhog`, puerto `1025`). Los envíos de prueba se ven en http://localhost:8025 y no salen a internet. Para recibir y responder correo real con SES, sigue esta sección. Referencia: [ingress providers](https://developers.chatwoot.com/self-hosted/configuration/features/email-channel/ingress-providers) y [Amazon SES ingress](https://developers.chatwoot.com/self-hosted/configuration/features/email-channel/amazon-ses-ingress).
+
+Usa un **subdominio** dedicado (por ejemplo `support.scoopsxi.com`). No cambies el MX de `scoopsxi.com` si ese dominio ya tiene correo en otro proveedor.
+
+### 7.1 AWS: identidad, MX, SNS y regla
+
+1. SES → Identities → Create identity → Domain → `support.scoopsxi.com`. En Advanced DKIM elige **RSA_2048_BIT**. Publica los CNAME de DKIM (Route 53 puede hacerlo solo).
+2. En DNS del subdominio, MX hacia SES en tu región, por ejemplo:
+
+```text
+10 inbound-smtp.us-east-1.amazonaws.com
+```
+
+3. SNS → Topics → crea un topic **Standard** (no FIFO), por ejemplo `chatwoot-ses-inbound`. Copia el ARN.
+4. SES → Email receiving → Rule set → regla activa:
+   - Recipients: `help@support.scoopsxi.com` (o vacío para todo el dominio)
+   - Action: Publish to Amazon SNS topic → ese topic
+   - Encoding: **UTF-8**
+
+SES no acepta topics `.fifo`.
+
+### 7.2 Túnel y variables en `.env`
+
+El endpoint de SNS tiene que ser HTTPS público. Con el túnel de la sección 6 abierto:
+
+```bash
+FRONTEND_URL=https://<aleatorio>.trycloudflare.com
+
+RAILS_INBOUND_EMAIL_SERVICE=ses
+ACTION_MAILBOX_SES_SNS_TOPIC=arn:aws:sns:us-east-1:<account-id>:chatwoot-ses-inbound
+
+SMTP_ADDRESS=email-smtp.us-east-1.amazonaws.com
+SMTP_PORT=587
+SMTP_USERNAME=<usuario SMTP de SES>
+SMTP_PASSWORD=<contraseña SMTP de SES>
+SMTP_AUTHENTICATION=plain
+SMTP_ENABLE_STARTTLS_AUTO=true
+SMTP_DOMAIN=support.scoopsxi.com
+MAILER_SENDER_EMAIL=Scoops Xi <help@support.scoopsxi.com>
+MAILER_INBOUND_EMAIL_DOMAIN=support.scoopsxi.com
+```
+
+Las credenciales SMTP se crean en SES → SMTP settings → **IAM SMTP credentials** (no Mail Manager). El puerto tiene que ser **587**; si dejas `1025`, el correo sigue yendo a Mailhog.
+
+Recrea Rails y Sidekiq (el envío lo hace Sidekiq):
+
+```bash
+docker compose up -d --force-recreate --no-deps rails sidekiq
+```
+
+### 7.3 Suscripción SNS → Chatwoot
+
+SNS → el topic → Create subscription:
+
+- Protocol: HTTPS
+- Endpoint: `https://<aleatorio>.trycloudflare.com/rails/action_mailbox/ses/inbound_emails`
+
+Chatwoot confirma solo. Si la URL de Cloudflare cambia, borra la suscripción, crea otra con la URL nueva, actualiza `FRONTEND_URL` y vuelve a recrear `rails` y `sidekiq`.
+
+### 7.4 Bandeja en Chatwoot
+
+1. http://localhost:3000 → Ajustes → Entradas → Email → Other Providers.
+2. Dirección del canal: `help@support.scoopsxi.com`.
+3. La dirección larga `…@support.scoopsxi.com` es solo reenvío; con SES no hace falta usarla. IMAP déjalo apagado.
+4. El From de las respuestas usa el `support_email` de la cuenta. Ese campo en Ajustes solo aparece con la feature `custom_reply_email`. Si no lo ves, fíjalo así:
+
+```bash
+docker compose exec rails bundle exec rails runner 'Account.first.update!(support_email: "Scoops Xi <help@support.scoopsxi.com>")'
+```
+
+Si SES sigue en sandbox, solo puedes enviar a destinatarios verificados en SES Identities (o pide salir del sandbox).
+
+### 7.5 Probar
+
+1. Envía un correo a `help@support.scoopsxi.com`. Debe aparecer en la bandeja.
+2. Responde desde Chatwoot. Debe llegar al buzón del contacto desde `help@support.scoopsxi.com`.
+3. Si el mensaje queda en failed con `accounts@chatwoot.com`, el `support_email` de la cuenta no se actualizó.
+4. Si el correo aparece en http://localhost:8025, `SMTP_ADDRESS` / `SMTP_PORT` siguen apuntando a Mailhog: corrige a SES `587` y recrea `rails` y `sidekiq`.
+
+### 7.6 Otra bandeja con otro From
+
+Con solo el SMTP del `.env`, todas las respuestas de email usan el `support_email` de la cuenta. Para otro correo (por ejemplo `ventas@support.scoopsxi.com`):
+
+1. Crea otra bandeja Email con esa dirección.
+2. En Configuración de la bandeja, activa SMTP con las mismas credenciales SES y puerto `587`.
+3. Esa bandeja enviará con su propio From. IMAP sigue apagado si la recepción es por SES.
 
 ## Puertos que ocupa
 
