@@ -96,8 +96,15 @@ RUN if [ "$RAILS_ENV" = "production" ]; then \
   && rm -rf spec tests node_modules tmp/cache; \
   fi
 
-# Generate .git_sha file with current commit hash
-RUN git rev-parse HEAD > /app/.git_sha
+# Generate .git_sha (Railway/Docker Hub builds often have no .git in context)
+ARG RAILWAY_GIT_COMMIT_SHA
+RUN if git rev-parse HEAD > /app/.git_sha 2>/dev/null; then \
+      true; \
+    elif [ -n "$RAILWAY_GIT_COMMIT_SHA" ]; then \
+      printf '%s\n' "$RAILWAY_GIT_COMMIT_SHA" > /app/.git_sha; \
+    else \
+      printf 'unknown\n' > /app/.git_sha; \
+    fi
 
 # Remove unnecessary files
 RUN rm -rf /gems/ruby/3.4.0/cache/*.gem \
